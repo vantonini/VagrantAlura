@@ -4,26 +4,47 @@ apt-get install -y mariadb-server-10.3 && \
 mariadb -e "CREATE OR REPLACE USER 'phpuser'@'%' IDENTIFIED BY 'pass';"
 SCRIPT
 
+$script_puppet = <<-SCRIPT
+apt-get update && \
+apt-get install -y puppet
+SCRIPT
+
 Vagrant.configure("2") do |config|
     config.vm.box = "ubuntu/focal64"
-    config.vm.network  "forwarded_port", guest:80, host: 8089 # NAT
-    # config.vm.network "private_network", ip: "192.168.50.4" # Host-only
-    # config.vm.network "private_network", type: "dhcp" # Host-only
-    config.vm.network "public_network", bridge: "Intel(R) Dual Band Wireless-AC 3168", ip: "192.168.0.30" # bridged
-    
-    config.vm.synced_folder "./configs", "/configs"
-    config.vm.synced_folder ".", "/vagrant", disabled: true # will not create a shared folder from my local host folder to the guest
-    
 
-    config.vm.provision "installing sql",
-      inline: $script_mysql # executinig a script using a global variable
-    
-    config.vm.provision "add public ssh key",
-      inline: "cat /configs/id_focal.pub >> .ssh/authorized_keys" # adding the public ssh key to our authorized_keys
+    config.vm.define "mariadb" do |mariadb|
+      mariadb.vm.network "public_network", bridge: "Intel(R) Dual Band Wireless-AC 3168", ip: "192.168.0.30" # bridged
+      # mariadb.vm.network  "forwarded_port", guest:80, host: 8089 # NAT
+      # mariadb.vm.network "private_network", ip: "192.168.50.4" # Host-only
+      # mariadb.vm.network "private_network", type: "dhcp" # Host-only
+      
+      mariadb.vm.synced_folder "./configs", "/configs"
+      mariadb.vm.synced_folder ".", "/vagrant", disabled: true # will not create a shared folder from my local host folder to the guest
+      
+      mariadb.vm.provision "shell",
+        inline: $script_mysql # executinig a script using a global variable
+      
+      mariadb.vm.provision "shell",
+        inline: "cat /configs/id_focal.pub >> .ssh/authorized_keys" # adding the public ssh key to our authorized_keys
+  
+      mariadb.vm.provision "shell",
+        inline: "cat /configs/50-server.cnf > /etc/mysql/mariadb.conf.d/50-server.cnf" # copying the public ssh key to our authorized_keys
+  
+      mariadb.vm.provision "shell",
+        inline: "service mariadb restart"
+    end
 
-    config.vm.provision "copying mariadb config file",
-      inline: "cat /configs/50-server.cnf > /etc/mysql/mariadb.conf.d/50-server.cnf" # copying the public ssh key to our authorized_keys
+    config.vm.define "phpweb" do |phpweb|
+      phpweb.vm.network "forwarded_port", guest: 8888, host: 8888
+      phpweb.vm.network "public_network", bridge: "Intel(R) Dual Band Wireless-AC 3168", ip: "192.168.0.35" # bridged
+      phpweb.vm.provision "shell",
+        inline: $script_puppet
 
-    config.vm.provision "restartinig mariadb service",
-      inline: "service mariadb restart"
+      phpweb.vm.provision "puppet" do |puppet|
+        puppet.manifests_path = "./configs/manifests"
+        puppet.manifest_file = "phpweb.pp"
+      end
+
+    end
+
   end
