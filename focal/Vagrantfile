@@ -9,30 +9,38 @@ apt-get update && \
 apt-get install -y puppet
 SCRIPT
 
+$script_ansible = <<-SCRIPT
+apt-get update && \
+apt-get install -y software-properties-common && \
+apt-get install -y ansible
+SCRIPT
+
+# apt-add-repository --yes --update ppa:ansible/ansible &&
+
 Vagrant.configure("2") do |config|
     config.vm.box = "ubuntu/focal64"
 
-    config.vm.define "mariadb" do |mariadb|
-      mariadb.vm.network "public_network", bridge: "Intel(R) Dual Band Wireless-AC 3168", ip: "192.168.0.30" # bridged
-      # mariadb.vm.network  "forwarded_port", guest:80, host: 8089 # NAT
-      # mariadb.vm.network "private_network", ip: "192.168.50.4" # Host-only
-      # mariadb.vm.network "private_network", type: "dhcp" # Host-only
+    # config.vm.define "mariadb" do |mariadb|
+    #   mariadb.vm.network "public_network", bridge: "Intel(R) Dual Band Wireless-AC 3168", ip: "192.168.0.30" # bridged
+    #   # mariadb.vm.network  "forwarded_port", guest:80, host: 8089 # NAT
+    #   # mariadb.vm.network "private_network", ip: "192.168.50.4" # Host-only
+    #   # mariadb.vm.network "private_network", type: "dhcp" # Host-only
       
-      mariadb.vm.synced_folder "./configs", "/configs"
-      mariadb.vm.synced_folder ".", "/vagrant", disabled: true # will not create a shared folder from my local host folder to the guest
+    #   mariadb.vm.synced_folder "./configs", "/configs"
+    #   mariadb.vm.synced_folder ".", "/vagrant", disabled: true # will not create a shared folder from my local host folder to the guest
       
-      mariadb.vm.provision "shell",
-        inline: $script_mysql # executinig a script using a global variable
+    #   mariadb.vm.provision "shell",
+    #     inline: $script_mysql # executinig a script using a global variable
       
-      mariadb.vm.provision "shell",
-        inline: "cat /configs/id_focal.pub >> .ssh/authorized_keys" # adding the public ssh key to our authorized_keys
+    #   mariadb.vm.provision "shell",
+    #     inline: "cat /configs/id_focal.pub >> .ssh/authorized_keys" # adding the public ssh key to our authorized_keys
   
-      mariadb.vm.provision "shell",
-        inline: "cat /configs/50-server.cnf > /etc/mysql/mariadb.conf.d/50-server.cnf" # copying the public ssh key to our authorized_keys
+    #   mariadb.vm.provision "shell",
+    #     inline: "cat /configs/50-server.cnf > /etc/mysql/mariadb.conf.d/50-server.cnf" # copying the public ssh key to our authorized_keys
   
-      mariadb.vm.provision "shell",
-        inline: "service mariadb restart"
-    end
+    #   mariadb.vm.provision "shell",
+    #     inline: "service mariadb restart"
+    # end
 
     config.vm.define "phpweb" do |phpweb|
       phpweb.vm.network "forwarded_port", guest: 8888, host: 8888
@@ -46,5 +54,28 @@ Vagrant.configure("2") do |config|
       end
 
     end
+
+    config.vm.define "mysqlserver" do |mysqlserver|
+      mysqlserver.vm.network "public_network", bridge: "Intel(R) Dual Band Wireless-AC 3168", ip: "192.168.0.40" # bridged
+      mysqlserver.vm.provision "shell",
+        inline: "cat /vagrant/configs/id_focal.pub >> .ssh/authorized_keys" # adding the public ssh key to our authorized_keys
+
+    end
+
+    config.vm.define "ansible" do |ansible|
+      ansible.vm.network "public_network", bridge: "Intel(R) Dual Band Wireless-AC 3168", ip: "192.168.0.45" # bridged
+
+      ansible.vm.provision "shell",
+        inline: $script_ansible
+  
+      ansible.vm.provision "shell",
+        inline: "cp /vagrant/id_focal /home/vagrant/ && \
+                 chmod 600 /home/vagrant/id_focal && \
+                 chown vagrant:vagrant id_focal" # adding the public ssh key to our authorized_keys
+
+      ansible.vm.provision "shell",
+        inline: "ansible-playbook -i /vagrant/configs/ansible/hosts /vagrant/configs/ansible/playbook.yml"
+    end
+
 
   end
