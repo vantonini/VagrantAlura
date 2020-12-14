@@ -20,6 +20,11 @@ SCRIPT
 Vagrant.configure("2") do |config|
     config.vm.box = "ubuntu/focal64"
 
+    config.vm.provider "virtualbox" do |vb|
+      vb.memory = 1024
+      vb.cpus = 1
+    end
+
     # config.vm.define "mariadb" do |mariadb|
     #   mariadb.vm.network "public_network", bridge: "Intel(R) Dual Band Wireless-AC 3168", ip: "192.168.0.30" # bridged
     #   # mariadb.vm.network  "forwarded_port", guest:80, host: 8089 # NAT
@@ -43,6 +48,10 @@ Vagrant.configure("2") do |config|
     # end
 
     config.vm.define "phpweb" do |phpweb|
+      phpweb.vm.provider "virtualbox" do |vb|
+        vb.name = "ubuntu_focal_php"
+      end
+
       phpweb.vm.network "forwarded_port", guest: 8888, host: 8888
       phpweb.vm.network "public_network", bridge: "Intel(R) Dual Band Wireless-AC 3168", ip: "192.168.0.35" # bridged
       phpweb.vm.provision "shell",
@@ -53,16 +62,29 @@ Vagrant.configure("2") do |config|
         puppet.manifest_file = "phpweb.pp"
       end
 
+
+
     end
 
     config.vm.define "mysqlserver" do |mysqlserver|
+      mysqlserver.vm.provider "virtualbox" do |vb|
+        vb.name = "ubuntu_focal_mysqlserver"
+      end
+
       mysqlserver.vm.network "public_network", bridge: "Intel(R) Dual Band Wireless-AC 3168", ip: "192.168.0.40" # bridged
       mysqlserver.vm.provision "shell",
         inline: "cat /vagrant/configs/id_focal.pub >> .ssh/authorized_keys" # adding the public ssh key to our authorized_keys
 
+      
+
+
     end
 
     config.vm.define "ansible" do |ansible|
+
+      ansible.vm.provider "virtualbox" do |vb|
+        vb.name = "ubuntu_focal_ansible"
+      end
       ansible.vm.network "public_network", bridge: "Intel(R) Dual Band Wireless-AC 3168", ip: "192.168.0.45" # bridged
 
       ansible.vm.provision "shell",
@@ -77,5 +99,14 @@ Vagrant.configure("2") do |config|
         inline: "ansible-playbook -i /vagrant/configs/ansible/hosts /vagrant/configs/ansible/playbook.yml"
     end
 
+    config.vm.define "memcached" do |memcached|
+      memcached.vm.box = "centos/7"
+      memcached.vm.provider "virtualbox" do |vb|
+        vb.memory = 1024
+        vb.cpus = 2
+        vb.name = "centos_memcached"
+      end
+
+    end
 
   end
